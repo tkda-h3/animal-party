@@ -1,0 +1,337 @@
+openapi: 3.0.3
+info:
+  title: Animal Party Game API
+  description: API for Animal Party (Penguin Party) board game
+  version: 1.0.0
+servers:
+  - url: http://localhost:3001/api
+    description: Development server
+
+paths:
+  /games:
+    post:
+      summary: Create a new game
+      tags:
+        - Games
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRequest'
+      responses:
+        '201':
+          description: Game created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+
+    get:
+      summary: List all games
+      tags:
+        - Games
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GameSummary'
+
+  /games/{gameId}:
+    get:
+      summary: Get game state
+      tags:
+        - Games
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current game state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+
+    delete:
+      summary: Delete a game
+      tags:
+        - Games
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Game deleted successfully
+
+  /games/{gameId}/moves:
+    post:
+      summary: Make a move
+      tags:
+        - Gameplay
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+      responses:
+        '200':
+          description: Move successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          description: Invalid move
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/{gameId}/ai-move:
+    post:
+      summary: Request AI to make a move
+      tags:
+        - Gameplay
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                playerId:
+                  type: string
+      responses:
+        '200':
+          description: AI move successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+
+  /games/{gameId}/next-round:
+    post:
+      summary: Start next round
+      tags:
+        - Gameplay
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Next round started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+
+  /ai/suggest-move:
+    post:
+      summary: Get AI move suggestion
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AISuggestionRequest'
+      responses:
+        '200':
+          description: AI suggestion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISuggestionResponse'
+
+components:
+  schemas:
+    CreateGameRequest:
+      type: object
+      required:
+        - playerCount
+        - playerConfigs
+      properties:
+        playerCount:
+          type: integer
+          minimum: 2
+          maximum: 6
+        playerConfigs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlayerConfig'
+
+    PlayerConfig:
+      type: object
+      required:
+        - name
+        - isAI
+      properties:
+        name:
+          type: string
+        isAI:
+          type: boolean
+
+    GameResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+        currentPlayerId:
+          type: string
+        pyramid:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/PlacedCard'
+        round:
+          type: integer
+        totalRounds:
+          type: integer
+        gameStatus:
+          type: string
+          enum: [setup, playing, roundEnd, gameEnd]
+        eliminatedPlayers:
+          type: array
+          items:
+            type: string
+
+    GameSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        playerCount:
+          type: integer
+        round:
+          type: integer
+        totalRounds:
+          type: integer
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        isAI:
+          type: boolean
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+        points:
+          type: integer
+        isEliminated:
+          type: boolean
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+        color:
+          type: string
+          enum: [green, yellow, red, purple, blue]
+
+    PlacedCard:
+      type: object
+      nullable: true
+      properties:
+        card:
+          $ref: '#/components/schemas/Card'
+        position:
+          $ref: '#/components/schemas/Position'
+        playerId:
+          type: string
+
+    Position:
+      type: object
+      properties:
+        row:
+          type: integer
+        col:
+          type: integer
+
+    MoveRequest:
+      type: object
+      required:
+        - playerId
+        - cardId
+        - position
+      properties:
+        playerId:
+          type: string
+        cardId:
+          type: string
+        position:
+          $ref: '#/components/schemas/Position'
+
+    AISuggestionRequest:
+      type: object
+      required:
+        - gameState
+        - playerId
+      properties:
+        gameState:
+          $ref: '#/components/schemas/GameResponse'
+        playerId:
+          type: string
+
+    AISuggestionResponse:
+      type: object
+      properties:
+        cardId:
+          type: string
+        position:
+          $ref: '#/components/schemas/Position'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
